@@ -1,87 +1,89 @@
-/* src/ChatWidget.css */
-.chat-widget {
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  width: 300px;
-  max-height: 400px;
+/* General container */
+.chat-container {
+  width: 400px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  background-color: #fff;
+  justify-content: space-between;
+  height: 600px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  background-color: #f9f9f9;
+  padding: 10px;
 }
 
+/* Header with the fortune teller image */
+.header {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.fortune-teller-img {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #555;
+}
+
+/* Chat messages section */
 .chat-messages {
   flex: 1;
   overflow-y: auto;
   padding: 10px;
-  border-bottom: 1px solid #ddd;
-}
-
-.message {
-  padding: 5px;
-  margin: 5px 0;
-  border-radius: 4px;
-}
-
-.user {
-  background-color: #d4f0ff;
-  align-self: flex-end;
-}
-
-.bot {
-  background-color: #f0f0f0;
-  align-self: flex-start;
-}
-
-.chat-form {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Message bubble styles */
+.message-bubble {
+  padding: 10px 15px;
+  border-radius: 15px;
+  max-width: 70%;
+  display: inline-block;
+  word-wrap: break-word;
+}
+
+.from-user {
+  background-color: #d1e7dd;
+  align-self: flex-end;
+  color: #0f5132;
+}
+
+.from-bot {
+  background-color: #f1f1f1;
+  align-self: flex-start;
+  color: #333;
+  border: 1px solid #ddd;
+}
+
+/* Input form at the bottom */
+.message-input-form {
+  display: flex;
+  gap: 10px;
   padding: 10px;
+  background-color: #fff;
   border-top: 1px solid #ddd;
 }
 
-.chat-input {
+.message-input {
   flex: 1;
-  padding: 5px;
+  padding: 10px;
   border: 1px solid #ccc;
-  border-radius: 4px;
+  border-radius: 5px;
 }
 
-.chat-send-button {
-  background-color: #007bff;
-  color: #fff;
+.send-button {
+  padding: 10px 20px;
   border: none;
-  border-radius: 4px;
-  padding: 5px 10px;
-  margin-left: 5px;
+  background-color: #4CAF50;
+  color: white;
+  border-radius: 5px;
   cursor: pointer;
 }
 
-.chat-send-button:hover {
-  background-color: #0056b3;
-}
-
-.login-form {
-  display: flex;
-  flex-direction: column;
-  padding: 20px;
-}
-
-.login-form input {
-  margin-bottom: 10px;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
-.login-form button {
-  background-color: #007bff;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.login-form button:hover {
-  background-color: #0056b3;
+.send-button:hover {
+  background-color: #45a049;
 }
 

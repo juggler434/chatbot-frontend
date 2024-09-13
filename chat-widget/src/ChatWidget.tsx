@@ -1,6 +1,5 @@
-// src/ChatWidget.tsx
 import React, { useState, ChangeEvent, FormEvent, useEffect } from 'react';
-import './ChatWidget.css'; // Add your styles here
+import './ChatWidget.css'; // Import the styles from your CSS file
 
 interface Message {
   id: string;
@@ -35,74 +34,59 @@ const ChatWidget: React.FC = () => {
     setPassword(event.target.value);
   };
 
-  // Fetch messages from the backend with pagination
-  const fetchMessages = async (offset = 0, limit = 50) => {
-  const token = localStorage.getItem('authToken');
-  if (!token) return;
+  // Handle signup form submission
+  const handleSignupSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
-  try {
-    const response = await fetch(`http://localhost:8000/messages?offset=${offset}&limit=${limit}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': token,
-        'Content-Type': 'application/json',
-      },
-    });
+    try {
+      const bodyData = JSON.stringify({ email, password });
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch messages');
+      const response = await fetch('http://localhost:8000/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: bodyData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Signup failed: ${errorText}`);
+      }
+
+      const data = await response.json();
+      const { access_token, token_type } = data;
+
+      if (access_token) {
+        localStorage.setItem('authToken', `${token_type} ${access_token}`);
+        setIsLoggedIn(true);
+      }
+    } catch (error) {
+      console.error('Error during signup:', error);
     }
+  };
 
-    // Ensure that the response is typed as an array of Message-like objects
-    const data: Array<{
-      id: string;
-      question: string;
-      response: string;
-      created_at: string;
-      updated_at: string;
-    }> = await response.json();
-
-    // Map the API response to a format we can use for rendering
-    const formattedMessages: Message[] = data.map((msg) => ({
-      id: msg.id,
-      question: msg.question,
-      response: msg.response,
-      fromUser: true, // All questions are from the user
-      created_at: msg.created_at,
-      updated_at: msg.updated_at,
-    }));
-
-    // Filter out duplicates by message id
-    setMessages((prevMessages) => {
-      const newMessages = formattedMessages.filter(
-        (msg: Message) => !prevMessages.some((prevMsg) => prevMsg.id === msg.id)
-      );
-      return [...prevMessages, ...newMessages];
-    });
-  } catch (error) {
-    console.error(error);
-  }
-};
-
-  // Handle login form submission (URL-encoded form data)
+  // Handle login form submission
   const handleLoginSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    
+
     try {
-      const formBody = new URLSearchParams({
+      const bodyData = new URLSearchParams({
         username: email,
-        password
-      }).toString();
+        password,
+      });
 
       const response = await fetch('http://localhost:8000/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: formBody,
+        body: bodyData.toString(),
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Login failed:', errorText);
         throw new Error('Login failed');
       }
 
@@ -112,85 +96,114 @@ const ChatWidget: React.FC = () => {
       if (access_token) {
         localStorage.setItem('authToken', `${token_type} ${access_token}`);
         setIsLoggedIn(true);
-
-        // Fetch initial messages when logged in
         fetchMessages();
       }
     } catch (error) {
-      console.error(error);
+      console.error('Error during login:', error);
     }
   };
 
-  // Handle sign-up form submission (JSON data)
-  const handleSignupSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  // Fetch messages from the backend with pagination
+  const fetchMessages = async (offset = 0, limit = 50) => {
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
 
     try {
-      const bodyData = JSON.stringify({
-        email: email,
-        password: password
-      });
-
-      const response = await fetch('http://localhost:8000/users', { // User creation endpoint
-        method: 'POST',
+      const response = await fetch(`http://localhost:8000/messages?offset=${offset}&limit=${limit}`, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json', // Sending JSON
+          Authorization: token,
+          'Content-Type': 'application/json',
         },
-        body: bodyData, // JSON body
       });
 
       if (!response.ok) {
-        throw new Error('Sign-up failed');
+        const errorText = await response.text();
+        console.error('Failed to fetch messages:', errorText);
+        throw new Error('Failed to fetch messages');
       }
 
-      // Log the user in automatically after sign-up
       const data = await response.json();
-      const { access_token, token_type } = data;
 
-      if (access_token) {
-        localStorage.setItem('authToken', `${token_type} ${access_token}`);
-        setIsLoggedIn(true);
+      // Map and update messages
+      const formattedMessages: Message[] = data.map((msg: any) => ({
+        id: msg.id,
+        question: msg.question,
+        response: msg.response,
+        fromUser: true,
+        created_at: msg.created_at,
+        updated_at: msg.updated_at,
+      }));
 
-        // Fetch initial messages when signed up
-        fetchMessages();
-      }
+      setMessages((prevMessages) => [...prevMessages, ...formattedMessages]);
     } catch (error) {
-      console.error(error);
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  // Handle sending a message
+  const handleSendMessage = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (inputValue.trim()) {
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+
+      try {
+        const bodyData = JSON.stringify({ question: inputValue });
+
+        const response = await fetch('http://localhost:8000/messages', {
+          method: 'POST',
+          headers: {
+            Authorization: token,
+            'Content-Type': 'application/json',
+          },
+          body: bodyData,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Failed to send message:', errorText);
+          throw new Error('Failed to send message');
+        }
+
+        const data = await response.json();
+
+        // Update the chat with both the question and response
+        const newMessage: Message = {
+          id: data.id || Date.now().toString(),
+          question: data.question,
+          response: data.response,
+          fromUser: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        setMessages((prevMessages) => [...prevMessages, newMessage]);
+        setInputValue('');
+      } catch (error) {
+        console.error('Error sending message:', error);
+      }
     }
   };
 
   // Handle logout
   const handleLogout = () => {
-    localStorage.removeItem('authToken'); // Remove the bearer token
-    setIsLoggedIn(false); // Update the state to reflect that the user is logged out
-    setMessages([]); // Clear messages on logout
+    localStorage.removeItem('authToken');
+    setIsLoggedIn(false);
+    setMessages([]);
   };
-
-  // Handle sending a chat message (only from the user)
-  const handleSendMessage = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (inputValue.trim()) {
-      setMessages([...messages, { id: Date.now().toString(), question: inputValue, response: '', fromUser: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }]);
-      setInputValue(''); // Clear input after sending a message
-    }
-  };
-
-  // Load more messages (pagination)
-  const loadMoreMessages = () => {
-    const newOffset = offset + limit;
-    setOffset(newOffset);
-    fetchMessages(newOffset, limit); // Fetch the next set of messages
-  };
-
-  useEffect(() => {
-    // Fetch initial messages after login
-    if (isLoggedIn) {
-      fetchMessages();
-    }
-  }, [isLoggedIn]);
 
   return (
-    <div className="chat-widget">
+    <div className="chat-container">
+      <div className="header">
+        <img
+          src="https://example.com/fortune-teller-image.jpg"
+          alt="Fortune Teller"
+          className="fortune-teller-img"
+        />
+      </div>
+
       {!isLoggedIn ? (
         <div>
           <button onClick={() => setIsSignup(!isSignup)}>
@@ -198,14 +211,38 @@ const ChatWidget: React.FC = () => {
           </button>
           {isSignup ? (
             <form onSubmit={handleSignupSubmit}>
-              <input type="email" value={email} onChange={handleEmailChange} placeholder="Email" required />
-              <input type="password" value={password} onChange={handlePasswordChange} placeholder="Password" required />
+              <input
+                type="email"
+                value={email}
+                onChange={handleEmailChange}
+                placeholder="Email"
+                required
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={handlePasswordChange}
+                placeholder="Password"
+                required
+              />
               <button type="submit">Sign-up</button>
             </form>
           ) : (
             <form onSubmit={handleLoginSubmit}>
-              <input type="email" value={email} onChange={handleEmailChange} placeholder="Email" required />
-              <input type="password" value={password} onChange={handlePasswordChange} placeholder="Password" required />
+              <input
+                type="email"
+                value={email}
+                onChange={handleEmailChange}
+                placeholder="Email"
+                required
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={handlePasswordChange}
+                placeholder="Password"
+                required
+              />
               <button type="submit">Login</button>
             </form>
           )}
@@ -213,31 +250,31 @@ const ChatWidget: React.FC = () => {
       ) : (
         <div>
           <div className="chat-messages">
-            {messages.map((message) => (
-              <div key={message.id}>
-                <div className={`chat-message from-user`}>
-                  {message.question}
+            {messages.length === 0 ? (
+              <p>No messages yet</p>
+            ) : (
+              messages.map((message) => (
+                <div key={message.id}>
+                  <div className="chat-message from-user">{message.question}</div>
+                  {message.response && (
+                    <div className="chat-message from-bot">{message.response}</div>
+                  )}
                 </div>
-                {message.response && (
-                  <div className="chat-message from-bot">
-                    {message.response}
-                  </div>
-                )}
-              </div>
-            ))}
+              ))
+            )}
           </div>
-          <form onSubmit={handleSendMessage}>
+          <form onSubmit={handleSendMessage} className="message-input-form">
             <input
               type="text"
               value={inputValue}
               onChange={handleInputChange}
               placeholder="Type your message"
+              className="message-input"
               required
             />
-            <button type="submit">Send</button>
+            <button type="submit" className="send-button">Send</button>
           </form>
-          <button onClick={loadMoreMessages}>Load More Messages</button> {/* Load more messages */}
-          <button onClick={handleLogout}>Logout</button> {/* Logout button */}
+          <button onClick={handleLogout}>Logout</button>
         </div>
       )}
     </div>

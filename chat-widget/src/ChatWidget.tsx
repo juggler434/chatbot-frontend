@@ -1,5 +1,5 @@
 // src/ChatWidget.tsx
-import React, { useState, ChangeEvent, FormEvent } from 'react';
+import React, { useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import './ChatWidget.css'; // Add your styles here
 
 interface Message {
@@ -8,7 +8,7 @@ interface Message {
 }
 
 const ChatWidget: React.FC = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(!!localStorage.getItem('authToken'));
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -22,13 +22,40 @@ const ChatWidget: React.FC = () => {
     setPassword(event.target.value);
   };
 
-  const handleLoginSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleLoginSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // For demonstration purposes, we assume any non-empty email and password are valid
-    if (email.trim() !== '' && password.trim() !== '') {
-      setIsLoggedIn(true);
-      setEmail('');
-      setPassword('');
+    
+    try {
+      const formBody = new URLSearchParams({
+          username: email,
+        password
+      }).toString();
+
+      const response = await fetch('http://localhost:8000/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formBody,
+      });
+
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
+
+      const data = await response.json();
+      const { access_token, token_type } = data;
+
+      if (access_token) {
+        localStorage.setItem('authToken', `${token_type} ${access_token}`);
+        setIsLoggedIn(true);
+        setEmail('');
+        setPassword('');
+      } else {
+        alert('No token received');
+      }
+    } catch (error) {
+      alert(error);
     }
   };
 
@@ -36,11 +63,12 @@ const ChatWidget: React.FC = () => {
     setInputValue(event.target.value);
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (inputValue.trim() !== '') {
       setMessages([...messages, { text: inputValue, fromUser: true }]);
       setInputValue('');
+
       // Simulate a response from the chatbot
       setTimeout(() => {
         setMessages((prevMessages) => [
@@ -50,6 +78,13 @@ const ChatWidget: React.FC = () => {
       }, 1000);
     }
   };
+
+  useEffect(() => {
+    const authToken = localStorage.getItem('authToken');
+    if (authToken) {
+      setIsLoggedIn(true);
+    }
+  }, []);
 
   return (
     <div className="chat-widget">

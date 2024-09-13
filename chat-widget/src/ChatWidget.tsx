@@ -3,8 +3,12 @@ import React, { useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import './ChatWidget.css'; // Add your styles here
 
 interface Message {
-  text: string;
+  id: string;
+  question: string;
+  response: string;
   fromUser: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 const ChatWidget: React.FC = () => {
@@ -14,6 +18,8 @@ const ChatWidget: React.FC = () => {
   const [password, setPassword] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState<string>('');
+  const [offset, setOffset] = useState<number>(0);
+  const [limit, setLimit] = useState<number>(50);
 
   // Handle input change for chat messages
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -28,6 +34,55 @@ const ChatWidget: React.FC = () => {
   const handlePasswordChange = (event: ChangeEvent<HTMLInputElement>) => {
     setPassword(event.target.value);
   };
+
+  // Fetch messages from the backend with pagination
+  const fetchMessages = async (offset = 0, limit = 50) => {
+  const token = localStorage.getItem('authToken');
+  if (!token) return;
+
+  try {
+    const response = await fetch(`http://localhost:8000/messages?offset=${offset}&limit=${limit}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': token,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch messages');
+    }
+
+    // Ensure that the response is typed as an array of Message-like objects
+    const data: Array<{
+      id: string;
+      question: string;
+      response: string;
+      created_at: string;
+      updated_at: string;
+    }> = await response.json();
+
+    // Map the API response to a format we can use for rendering
+    const formattedMessages: Message[] = data.map((msg) => ({
+      id: msg.id,
+      question: msg.question,
+      response: msg.response,
+      fromUser: true, // All questions are from the user
+      created_at: msg.created_at,
+      updated_at: msg.updated_at,
+    }));
+
+    // Filter out duplicates by message id
+    setMessages((prevMessages) => {
+      const newMessages = formattedMessages.filter(
+        (msg: Message) => !prevMessages.some((prevMsg) => prevMsg.id === msg.id)
+      );
+      return [...prevMessages, ...newMessages];
+    });
+  } catch (error) {
+    console.error(error);
+  }
+};
 
   // Handle login form submission (URL-encoded form data)
   const handleLoginSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -57,6 +112,9 @@ const ChatWidget: React.FC = () => {
       if (access_token) {
         localStorage.setItem('authToken', `${token_type} ${access_token}`);
         setIsLoggedIn(true);
+
+        // Fetch initial messages when logged in
+        fetchMessages();
       }
     } catch (error) {
       console.error(error);
@@ -92,6 +150,9 @@ const ChatWidget: React.FC = () => {
       if (access_token) {
         localStorage.setItem('authToken', `${token_type} ${access_token}`);
         setIsLoggedIn(true);
+
+        // Fetch initial messages when signed up
+        fetchMessages();
       }
     } catch (error) {
       console.error(error);
@@ -102,20 +163,30 @@ const ChatWidget: React.FC = () => {
   const handleLogout = () => {
     localStorage.removeItem('authToken'); // Remove the bearer token
     setIsLoggedIn(false); // Update the state to reflect that the user is logged out
+    setMessages([]); // Clear messages on logout
   };
 
-  // Handle sending a chat message
+  // Handle sending a chat message (only from the user)
   const handleSendMessage = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (inputValue.trim()) {
-      setMessages([...messages, { text: inputValue, fromUser: true }]);
+      setMessages([...messages, { id: Date.now().toString(), question: inputValue, response: '', fromUser: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }]);
       setInputValue(''); // Clear input after sending a message
     }
   };
 
+  // Load more messages (pagination)
+  const loadMoreMessages = () => {
+    const newOffset = offset + limit;
+    setOffset(newOffset);
+    fetchMessages(newOffset, limit); // Fetch the next set of messages
+  };
+
   useEffect(() => {
-    // Fetch messages from backend or use WebSocket logic if needed
-    // For now, using static messages or empty logic
+    // Fetch initial messages after login
+    if (isLoggedIn) {
+      fetchMessages();
+    }
   }, [isLoggedIn]);
 
   return (
@@ -142,12 +213,16 @@ const ChatWidget: React.FC = () => {
       ) : (
         <div>
           <div className="chat-messages">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`chat-message ${message.fromUser ? 'from-user' : 'from-bot'}`}
-              >
-                {message.text}
+            {messages.map((message) => (
+              <div key={message.id}>
+                <div className={`chat-message from-user`}>
+                  {message.question}
+                </div>
+                {message.response && (
+                  <div className="chat-message from-bot">
+                    {message.response}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -161,6 +236,7 @@ const ChatWidget: React.FC = () => {
             />
             <button type="submit">Send</button>
           </form>
+          <button onClick={loadMoreMessages}>Load More Messages</button> {/* Load more messages */}
           <button onClick={handleLogout}>Logout</button> {/* Logout button */}
         </div>
       )}
